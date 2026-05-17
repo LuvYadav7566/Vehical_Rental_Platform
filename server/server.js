@@ -32,8 +32,13 @@ io.on('connection', (socket) => {
     console.log(`User with ID: ${socket.id} joined room: ${data}`);
   });
 
+  socket.on('join_user_room', (userId) => {
+    socket.join(`user_${userId}`);
+    console.log(`User with ID: ${socket.id} joined personal room: user_${userId}`);
+  });
+
   socket.on('send_message', (data) => {
-    socket.to(data.roomId).emit('receive_message', data);
+    socket.to(data.roomId).to(`user_${data.receiverId}`).emit('receive_message', data);
   });
 
   socket.on('disconnect', () => {
