@@ -35,7 +35,7 @@ const createBooking = async (req, res) => {
       // OR
       // - New start date is AFTER or exactly AT booked end date
       const isSafe = (newEnd <= bStart) || (newStart >= bEnd);
-      
+
       if (!isSafe) {
         conflict = true;
         conflictBooking = b;
@@ -46,15 +46,15 @@ const createBooking = async (req, res) => {
     if (conflict) {
       const cStart = new Date(conflictBooking.pickupDate);
       const cEnd = new Date(conflictBooking.returnDate);
-      
+
       const beforeDate = new Date(cStart);
       beforeDate.setDate(beforeDate.getDate() - 1);
-      
+
       const afterDate = new Date(cEnd);
       afterDate.setDate(afterDate.getDate() + 1);
 
       const options = { year: 'numeric', month: 'short', day: 'numeric' };
-      
+
       return res.status(409).json({
         message: 'Conflict',
         conflictDetails: {
@@ -62,7 +62,7 @@ const createBooking = async (req, res) => {
           conflictEnd: cEnd,
           availableBefore: beforeDate,
           availableAfter: afterDate,
-          smartMessage: `Sorry! This vehicle is already booked from ${cStart.toLocaleDateString('en-US', options)} to ${cEnd.toLocaleDateString('en-US', options)}.\n\nYou can book:\n✅ Before conflict — upto ${beforeDate.toLocaleDateString('en-US', options)}\n✅ After conflict — from ${afterDate.toLocaleDateString('en-US', options)} onwards`
+          smartMessage: `Sorry! This vehicle is already booked from ${cStart.toLocaleDateString('en-US', options)} to ${cEnd.toLocaleDateString('en-US', options)}`
         }
       });
     }
@@ -154,9 +154,9 @@ const cancelBooking = async (req, res) => {
     const ChatRoom = require('../models/ChatRoom');
     await ChatRoom.findOneAndUpdate(
       { bookingId: booking._id },
-      { 
-        isBooked: false, 
-        bookingId: null 
+      {
+        isBooked: false,
+        bookingId: null
       }
     );
 
@@ -171,7 +171,7 @@ const cancelBooking = async (req, res) => {
 // @access  Private/Owner
 const updateBookingStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, rejectionReason } = req.body;
     const booking = await Booking.findById(req.params.id);
 
     if (!booking) {
@@ -183,6 +183,9 @@ const updateBookingStatus = async (req, res) => {
     }
 
     booking.bookingStatus = status;
+    if (rejectionReason) {
+      booking.rejectionReason = rejectionReason;
+    }
     await booking.save();
 
     // Update ChatRoom if cancelled or completed
@@ -190,9 +193,9 @@ const updateBookingStatus = async (req, res) => {
       const ChatRoom = require('../models/ChatRoom');
       await ChatRoom.findOneAndUpdate(
         { bookingId: booking._id },
-        { 
-          isBooked: false, 
-          bookingId: null 
+        {
+          isBooked: false,
+          bookingId: null
         }
       );
     }
@@ -211,9 +214,10 @@ const getVehicleBookedDates = async (req, res) => {
     const { vehicleId } = req.params;
     const bookings = await Booking.find({
       vehicle: vehicleId,
-      bookingStatus: { $in: ['Confirmed'] }
+      bookingStatus: { $in: ['Confirmed'] },
+      returnDate: { $gt: new Date() }
     }).select('pickupDate returnDate -_id');
-    
+
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ message: error.message });
